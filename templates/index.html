@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Products</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Image</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Regular Price</th>
+                <th>Stock</th>
+                <th>Shipping</th>
+                <th>Status</th>
+                <th>Featured</th>
+                <th>Vendor</th>
+                <th>SKU</th>
+                <th>Rating</th>
+                <th>Slug</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <td>{{ product.name }}</td>
+                <td>
+                    {% if product.image %}
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}" style="max-width: 100px;">
+                    {% else %}
+                    No Image
+                    {% endif %}
+                </td>
+                <td>{{ product.description|safe }}</td>
+                <td>{{ product.category.title }}</td>
+                <td>₹{{ product.price }}</td>
+                <td>₹{{ product.regular_price }}</td>
+                <td>{{ product.stock }}</td>
+                <td>₹{{ product.shipping }}</td>
+                <td>{{ product.status }}</td>
+                <td>{{ product.featured|yesno:"Yes,No" }}</td>
+                <td>{{ product.vendor.username}}</td>
+                <td>{{ product.sku }}</td>
+                <td>{{product.average_rating }}</td>
+                <td>{{ product.slug }}</td>
+                <td>{{ product.date }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="14">No products available</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>

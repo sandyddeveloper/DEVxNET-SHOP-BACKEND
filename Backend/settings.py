@@ -27,7 +27,6 @@ INSTALLED_APPS = [
     'UserAuth',
     'Vendor',
     'Analytics',
-    'Bot',
     'django_ckeditor_5',
 ]
 
@@ -46,7 +45,7 @@ ROOT_URLCONF = 'Backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [BASE_DIR, 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

@@ -37,8 +37,8 @@ class Profile(models.Model):
         return self.user.username
     
     
-    def save(self, *arg, **kwargs):
+    def save(self, *args, **kwargs):
         if not self.full_name:
             self.full_name = self.user.username
-        super(User, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
         

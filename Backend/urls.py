@@ -10,7 +10,6 @@ urlpatterns = [
     path('Store/', include('Store.urls')),
     path('', include('UserAuth.urls')),
     path('Vendor/', include('Vendor.urls')),
-    path('Bot/', include('Bot.urls')),
     path('ckeditor5/', include('django_ckeditor_5.urls')),
 ]
 
