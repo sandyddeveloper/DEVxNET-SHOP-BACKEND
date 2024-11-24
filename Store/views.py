@@ -1,90 +1,91 @@
-from django.shortcuts import render
-from Store import models as store_models
-from django.http import JsonResponse
-from django.db.models import Q, Avg, Sum
-# Create your views here.
-def index(request):
-    # Fetch products with the status "Published"
-    products = store_models.Product.objects.filter(status="Published")
-    context = {
-        {'products': products}
-    }
-    # Render the products to the template
-    return render(request, 'index.html', context)
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from Store.models import Product, Cart
+from Customer.models import Address
+from .serializers import ProductSerializer, CartSerializer, AddressSerializer
+from decimal import Decimal
 
+class ProductListView(APIView):
+    def get(self, request):
+        products = Product.objects.filter(status="Published")
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
 
-def product_details(request, slug):
-    product = store_models.Product.objects.get(status='Published', slug=slug)
-    related_product = store_models.Product.objects.filter(category=product.category, status="Published").exclude(id=product.id)
-    product_stock_range = (1, product.stock + 1)
-    context = {
-        'product': product,
-        'related_product':related_product,
-        'product_stock_range':product_stock_range,
-    }
-    return render(request, 'product_details.html', context)
-
-def add_to_cart(request):
-    product_id = request.GET.get('id')
-    quantity = request.GET.get('qty')
-    color = request.GET.get('color')
-    size = request.GET.get('size')
-    cart_id = request.GET.get('cart_id')
-    request.session['cart_id'] = cart_id
-    
-    if not id or not qty or not cart_id:
-        return JsonResponese({'error': 'No id, qty or cart_id'}, status=400)
-    
-    try:
-        product = store_models.Product.objects.get(status='Published', id=id)
-        
-    except store_models.Product.DoesNotExist:
-        return JsonResponese({'error': 'Product not found'}, status=400)
-    
-    existing_cart_items = store_models.Cart.objects.filter().first()
-    if int(qty) > product.stock:
-        return JsonResponse({'error': 'Qty excced current stock amount'}, status=400)
-    
-    if not existing_cart_items:
-        cart = store_models.Cart()
-        cart.product = product
-        cart.qty = qty
-        cart.price = product.price
-        cart.color = color
-        cart.size = size
-        cart.sub_total = Decimal(product.price) * Decimal(qty)
-        cart.shipping = Decimal(product.shipping) * Decimal(qty)
-        cart.total = cart.sub_total + cart.shipping
-        cart.user = request.user if request.user.is_authenticated else None
-        cart.cart_id = cart_id
-        
-        message = "Item added to cart"
-    else:
-        existing_cart_items.product = product
-        existing_cart_items.qty = qty
-        existing_cart_items.price = product.price
-        existing_cart_items.color = color
-        existing_cart_items.size = size
-        existing_cart_items.sub_total = Decimal(product.price) * Decimal(qty)
-        existing_cart_items.shipping = Decimal(product.shipping) * Decimal(qty)
-        existing_cart_items.total = existing_cart_items.sub_total + existing_cart_items.shipping
-        existing_cart_items.user = request.user if request.user.is_authenticated else None
-        existing_cart_items.cart_id = cart_id
-        existing_cart_items.save()
-        
-        message = "Cart updated"
-        
-    total_cart_items = store_models.Cart.objects,filter(Q(cart_id=cart_id) | Q(cart_id=cart_id))
-    cart_sub_total = store_models.Cart.objects.filter(cart_id=cart_id).aggregate(sub_total=Sum('sub_total'))['sub_total']
-        
-    return JsonResponse({
-        'message':message,
-        'total_cart_items':total_cart_items.count(),
-        'cart_sub_total':'{:,.2f}'.format(cart_sub_total),
-        'total_cart_items':"{:,.2f}".format(existing_cart_items.sub_total) if existing_cart_items else "{:,.2f}".format(cart.cart_sub_total)
+class ProductDetailView(APIView):
+    def get(self, request, slug):
+        product = get_object_or_404(Product, status="Published", slug=slug)
+        serializer = ProductSerializer(product)
+        related_products = Product.objects.filter(
+            category=product.category, status="Published"
+        ).exclude(id=product.id)
+        related_serializer = ProductSerializer(related_products, many=True)
+        return Response({
+            'product': serializer.data,
+            'related_products': related_serializer.data,
+            'stock_range': list(range(1, product.stock + 1))
         })
 
-        
-    return render(request, 'cart.html', context)
+class AddToCartView(APIView):
+    def post(self, request):
+        cart_id = request.data.get('cart_id')
+        product_id = request.data.get('product_id')
+        qty = request.data.get('qty')
 
- 
+        if not cart_id or not product_id or not qty:
+            return Response({'error': 'Missing required parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+        product = get_object_or_404(Product, id=product_id, status='Published')
+
+        if int(qty) > product.stock:
+            return Response({'error': 'Quantity exceeds stock'}, status=status.HTTP_400_BAD_REQUEST)
+
+        cart_item, created = Cart.objects.get_or_create(
+            product=product, cart_id=cart_id,
+            defaults={
+                'qty': qty,
+                'price': product.price,
+                'sub_total': Decimal(product.price) * int(qty),
+                'shipping': Decimal(product.shipping) * int(qty),
+                'total': Decimal(product.price) * int(qty) + Decimal(product.shipping) * int(qty),
+                'user': request.user if request.user.is_authenticated else None
+            }
+        )
+
+        if not created:
+            cart_item.qty = int(qty)
+            cart_item.sub_total = Decimal(product.price) * int(qty)
+            cart_item.shipping = Decimal(product.shipping) * int(qty)
+            cart_item.total = cart_item.sub_total + cart_item.shipping
+            cart_item.save()
+
+        return Response({'message': 'Cart updated successfully'})
+
+class CartView(APIView):
+    def get(self, request):
+        cart_id = request.session.get('cart_id')
+        if not cart_id:
+            return Response({'error': 'Cart not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        items = Cart.objects.filter(cart_id=cart_id)
+        serializer = CartSerializer(items, many=True)
+        total = items.aggregate(sub_total=Sum('sub_total'))['sub_total'] or 0
+
+        return Response({
+            'items': serializer.data,
+            'total': f"{total:,.2f}"
+        })
+
+class DeleteCartItemView(APIView):
+    def delete(self, request):
+        item_id = request.data.get('item_id')
+        cart_id = request.data.get('cart_id')
+
+        if not item_id or not cart_id:
+            return Response({'error': 'Missing required parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+        cart_item = get_object_or_404(Cart, id=item_id, cart_id=cart_id)
+        cart_item.delete()
+
+        return Response({'message': 'Item deleted successfully'})

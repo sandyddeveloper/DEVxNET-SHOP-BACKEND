@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'Vendor',
     'Analytics',
     'django_ckeditor_5',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [

@@ -97,8 +97,18 @@ class Product(models.Model):
         return self.name
     
     def average_rating(self):
-        return Review.objects.filter(product=self).aggregate(avg_rating=models.Avg('rating'))['avg_rating']
-    
+        return (
+            Review.objects.filter(product=self)
+            .aggregate(avg_rating=models.Avg('rating'))
+            .get('avg_rating') or 0
+        )
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name) + "-" + str(shortuuid.uuid().lower()[:2])
+        if self.price > self.regular_price:
+            raise ValueError("Price cannot exceed the regular price.")
+        super(Product, self).save(*args, **kwargs)
+        
     def review(self):
         return Review.objects.filter(product=self)
     
@@ -127,7 +137,7 @@ class Variant (models.Model):
         return self.name
     
 class VariantItem(models.Model):
-    variant = models.ForeignKey(Variant, on_delete=models.CASCADE, related_name='cariant_items')
+    variant = models.ForeignKey(Variant, on_delete=models.CASCADE, related_name='variant_items')
     title = models.CharField(max_length=1000, verbose_name='Item Title', null=True, blank=True)
     content = models.CharField(max_length=1000, verbose_name="Item Content", null=True, blank=True)
     
@@ -200,7 +210,7 @@ class Order(models.Model):
         return self.order_id
     
     def order_items(self):
-        return OrderItem.object.filter(order=self)
+        return OrderItem.objects.filter(order=self)
     
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
